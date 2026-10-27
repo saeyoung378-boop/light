@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우주 탐사선: 1인칭 별 등급 & 온도 관측 조종석</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Three.js for 3D Graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Cockpit Canopy Borders with Metallic Feel */
+        .canopy-top-bar {
+            background: linear-gradient(180deg, #eab308 0%, #ca8a04 60%, #854d0e 100%);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.4);
+        }
+
+        /* Glitch Animation for Damage */
+        @keyframes console-glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-6px, 4px); filter: hue-rotate(90deg) contrast(1.6); }
+            40% { transform: translate(6px, -4px) scale(0.99); filter: invert(0.25); }
+            60% { transform: translate(-4px, -2px); }
+            80% { transform: translate(4px, 2px); }
+            100% { transform: translate(0); }
+        }
+        .glitch-active {
+            animation: console-glitch 0.4s ease-in-out 2;
+        }
+
+        /* Cockpit Shake Effect */
+        @keyframes cockpit-impact {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            15% { transform: translate(-18px, 16px) rotate(-2.5deg); }
+            30% { transform: translate(18px, -14px) rotate(2.5deg); }
+            50% { transform: translate(-14px, -10px) rotate(-1.2deg); }
+            70% { transform: translate(10px, 8px) rotate(1deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        .shake-impact {
+            animation: cockpit-impact 0.45s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Pulsing Glow */
+        @keyframes pulse-cyan {
+            0%, 100% { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(6, 182, 212, 0.8); }
+        }
+        .glow-cyan {
+            animation: pulse-cyan 2s infinite;
+        }
+
+        /* 1인칭 머신건 / 조준 HUD */
+        .machinegun-rig {
+            width: 100%;
+            height: 112px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            transform: translateX(0);
+            transition: transform 0.12s ease-out;
+            filter: drop-shadow(0 10px 14px rgba(0,0,0,.75));
+        }
+        .machinegun-body {
+            width: 132px;
+            height: 58px;
+            border: 3px solid #172033;
+            border-radius: 18px 18px 10px 10px;
+            background: linear-gradient(145deg,#64748b,#1e293b 48%,#090f1d);
+            box-shadow: inset 0 4px 8px rgba(255,255,255,.18), 0 0 20px rgba(245,158,11,.2);
+            position: relative;
+        }
+        .machinegun-body:before {
+            content:"";
+            position:absolute;
+            left:25px; right:25px; top:-18px;
+            height:25px;
+            border:3px solid #334155;
+            border-bottom:0;
+            border-radius:12px 12px 0 0;
+            background:#0b1220;
+        }
+        .machinegun-barrel {
+            position:absolute;
+            width:150px;
+            height:18px;
+            left:50%;
+            top:10px;
+            transform:translateX(-50%);
+            border-radius:10px;
+            border:3px solid #111827;
+            background:linear-gradient(90deg,#475569,#cbd5e1,#334155);
+            box-shadow:0 0 8px rgba(148,163,184,.35);
+        }
+        .machinegun-barrel:after {
+            content:"";
+            position:absolute;
+            right:-18px;
+            top:-4px;
+            width:24px;
+            height:22px;
+            border-radius:4px;
+            border:2px solid #111827;
+            background:#111827;
+        }
+        .machinegun-screen {
+            position:absolute;
+            left:50%;
+            top:30px;
+            transform:translateX(-50%);
+            width:36px;
+            height:18px;
+            border:2px solid #f59e0b;
+            border-radius:5px;
+            background:#020617;
+            color:#22d3ee;
+            font:700 8px Orbitron,sans-serif;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .machinegun-grip {
+            position:absolute;
+            bottom:-30px;
+            left:50%;
+            width:32px;
+            height:40px;
+            transform:translateX(-50%) rotate(8deg);
+            border:3px solid #172033;
+            border-radius:6px 6px 12px 12px;
+            background:#334155;
+        }
+        .machinegun-trigger {
+            position:absolute;
+            bottom:-7px;
+            left:50%;
+            width:12px;
+            height:16px;
+            border:2px solid #f59e0b;
+            border-radius:0 0 8px 8px;
+            transform:translateX(-50%);
+        }
+        .aim-reticle {
+            position:fixed;
+            width:42px;
+            height:42px;
+            border:2px solid rgba(255,255,255,.92);
+            border-radius:50%;
+            z-index:90;
+            pointer-events:none;
+            transform:translate(-50%,-50%);
+            box-shadow:0 0 12px rgba(34,211,238,.7), inset 0 0 10px rgba(34,211,238,.2);
+        }
+        .aim-reticle:before,.aim-reticle:after {
+            content:"";
+            position:absolute;
+            background:#fff;
+            box-shadow:0 0 6px #22d3ee;
+        }
+        .aim-reticle:before { width:56px; height:2px; left:-9px; top:18px; }
+        .aim-reticle:after { width:2px; height:56px; left:18px; top:-9px; }
+        .aim-dot {
+            position:absolute;
+            width:6px;height:6px;border-radius:50%;
+            background:#f43f5e;
+            left:50%;top:50%;
+            transform:translate(-50%,-50%);
+            box-shadow:0 0 10px #f43f5e;
+        }
+        .laser-beam {
+            position:fixed;
+            height:5px;
+            transform-origin:left center;
+            z-index:89;
+            pointer-events:none;
+            border-radius:10px;
+            background:linear-gradient(90deg,rgba(34,211,238,.25),#67e8f9,#fff,rgba(244,63,94,.9));
+            box-shadow:0 0 8px #22d3ee,0 0 22px rgba(34,211,238,.8);
+            opacity:0;
+        }
+        .laser-beam.fire { animation:laser-shot .18s ease-out; }
+        @keyframes laser-shot {
+            0% { opacity:0; height:2px; }
+            15% { opacity:1; height:7px; }
+            100% { opacity:0; height:2px; }
+        }
+        #canvasContainer { touch-action: none; }
+        #aimReticle { touch-action: none; }
+        /* 터치 기기에서 '끌 수 있는 표적'임을 알려주는 점선 핸들 */
+        .aim-handle {
+            display:none;
+            position:absolute;
+            left:50%; top:50%;
+            width:92px; height:92px;
+            transform:translate(-50%,-50%);
+            border:2px dashed rgba(34,211,238,.55);
+            border-radius:50%;
+        }
+        @media (pointer:coarse) { .aim-handle { display:block; } }
+        .special-score {
+            min-width:108px;
+        }
+        .alien-warning {
+            animation: alien-warning 0.45s ease-in-out infinite alternate;
+        }
+        @keyframes alien-warning {
+            from { opacity:.35; transform:scale(.98); }
+            to { opacity:1; transform:scale(1.02); }
+        }
+
+        /* 문제 카드를 완전히 가리는 외계인 차단 레이어 */
+        .alien-block-cover {
+            position: absolute;
+            inset: 0;
+            z-index: 80;
+            background: rgba(2, 6, 23, 0.98);
+            backdrop-filter: blur(8px);
+            border-radius: 1.5rem;
+            border: 3px solid #f43f5e;
+            box-shadow: 0 0 45px rgba(244, 63, 94, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .alien-block-cover.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        .alien-block-cover.hit {
+            animation: alien-pop-out 0.3s forwards ease-in;
+        }
+        @keyframes alien-pop-out {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15) rotate(5deg); filter: brightness(2); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        .monster-bounce {
+            animation: monster-float 1.2s ease-in-out infinite alternate;
+        }
+        @keyframes monster-float {
+            0% { transform: translateY(0px) scale(1); }
+            100% { transform: translateY(-12px) scale(1.04); }
+        }
+
+        .smoke-damage {
+            position:absolute;
+            inset:0;
+            pointer-events:none;
+            opacity:0;
+            z-index:45;
+            background:
+              radial-gradient(circle at 24% 62%, rgba(120,113,108,.8) 0 5%, transparent 12%),
+              radial-gradient(circle at 73% 63%, rgba(82,82,91,.8) 0 5%, transparent 13%),
+              radial-gradient(circle at 50% 80%, rgba(71,85,105,.7) 0 3%, transparent 10%);
+            filter:blur(4px);
+        }
+        .smoke-damage.active { animation: smoke-puff 1.4s ease-out forwards; }
+        @keyframes smoke-puff {
+            0% { opacity:0; transform:scale(.9); }
+            20% { opacity:.9; }
+            100% { opacity:0; transform:scale(1.25); }
+        }
+        .panel-damaged {
+            animation:panel-flicker 1.2s steps(2,end);
+            filter:brightness(.65) contrast(1.2);
+        }
+        @keyframes panel-flicker {
+            0%,100%{opacity:1}
+            15%{opacity:.25}
+            30%{opacity:.8}
+            50%{opacity:.15}
+            70%{opacity:.6}
+        }
+        .travel-streak {
+            position:fixed;
+            inset:0;
+            pointer-events:none;
+            z-index:6;
+            opacity:0;
+            background:
+              repeating-linear-gradient(90deg,transparent 0 7%,rgba(255,255,255,.18) 7.1% 7.35%,transparent 7.5% 14%);
+        }
+        .travel-streak.active { animation:travel-pass .9s ease-out; }
+        @keyframes travel-pass {
+            0%{opacity:0;transform:scaleX(.2)}
+            35%{opacity:.8;transform:scaleX(1.2)}
+            100%{opacity:0;transform:scaleX(2)}
+        }
+        .screen-fx {
+            position:fixed;
+            inset:0;
+            z-index:58;
+            pointer-events:none;
+            overflow:hidden;
+            opacity:0;
+        }
+        .screen-fx.active { opacity:1; }
+        .screen-fx.power { animation:fx-power .55s ease-out; }
+        .screen-fx.scan { animation:fx-scan .9s ease-out; }
+        .screen-fx.pulse { animation:fx-pulse .5s ease-out; }
+        .screen-fx.thrust { animation:fx-thrust .7s ease-out; }
+        .screen-fx.lock { animation:fx-lock .65s ease-out; }
+        .screen-fx.success { animation:fx-success .8s ease-out; }
+        .screen-fx.pan { animation:fx-pan .85s ease-out; }
+
+        .planet-badge {
+            position:absolute;
+            left:50%;
+            top:20%;
+            transform:translateX(-50%);
+            z-index:5;
+            padding:7px 14px;
+            border:1px solid rgba(255,255,255,.35);
+            border-radius:999px;
+            background:rgba(2,6,23,.62);
+            backdrop-filter:blur(8px);
+            font:700 10px Orbitron,sans-serif;
+            letter-spacing:1px;
+            opacity:.85;
+        }
+
+        .cockpit-footer { position:relative; }
+        .cockpit-footer::before {
+            content:"";
+            position:absolute;
+            left:10%;
+            right:10%;
+            top:-54px;
+            height:88px;
+            border:4px solid rgba(148,163,184,.82);
+            border-bottom:0;
+            border-radius:50% 50% 0 0 / 100% 100% 0 0;
+            background:linear-gradient(180deg,rgba(15,23,42,.04),rgba(2,6,23,.28));
+            box-shadow:0 -4px 18px rgba(34,211,238,.16), inset 0 8px 12px rgba(255,255,255,.04);
+            pointer-events:none;
+            z-index:0;
+        }
+        .cockpit-footer::after {
+            content:"";
+            position:absolute;
+            left:12%; right:12%; top:-47px; height:70px;
+            border-top:1px solid rgba(245,158,11,.7);
+            border-radius:50% 50% 0 0 / 100% 100% 0 0;
+            pointer-events:none; z-index:0;
+        }
+        .scan-overlay {
+            position:fixed; inset:0; z-index:55; display:flex; align-items:center; justify-content:center;
+            pointer-events:auto; background:radial-gradient(circle at center,rgba(15,23,42,.28),rgba(2,6,23,.62));
+            backdrop-filter:blur(1px);
+        }
+        .scan-overlay.hidden { display:none; }
+        .scan-card {
+            width:min(390px,calc(100vw - 32px));
+            padding:22px; text-align:center; border-radius:24px;
+            border:2px solid rgba(34,211,238,.65);
+            background:rgba(2,6,23,.9); box-shadow:0 0 45px rgba(34,211,238,.22);
+        }
+        .scan-beam {
+            height:3px; width:100%; margin:14px 0; background:#22d3ee;
+            box-shadow:0 0 14px #22d3ee; transform:translateY(-22px); opacity:0;
+        }
+        .scanning .scan-beam { animation:scan-sweep 1.35s ease-in-out infinite; }
+        @keyframes scan-sweep {
+            0%{transform:translateY(-22px);opacity:.15} 50%{opacity:1} 100%{transform:translateY(22px);opacity:.15}
+        }
+        .scan-overlay.scanning .scan-card { animation:scan-pulse .55s ease-in-out infinite alternate; }
+        @keyframes scan-pulse { from{box-shadow:0 0 25px rgba(34,211,238,.15)} to{box-shadow:0 0 55px rgba(34,211,238,.45)} }
+        .crack-layer { transition:opacity .4s ease; }
+        #crackLayer2,#crackLayer3 { opacity:0; }
+        @media (max-width:700px){
+            .cockpit-footer::before{left:4%;right:4%;top:-42px;height:68px;}
+            .cockpit-footer::after{left:7%;right:7%;top:-36px;height:55px;}
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.5); border-radius: 3px; }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none bg-slate-950">
+
+    <!-- 1. THREE.JS 3D VIEWPORT CANVAS -->
+    <div id="canvasContainer" class="absolute inset-0 z-0 w-full h-full"></div>
+    <div id="planetBadge" class="planet-badge">DEEP SPACE</div>
+    <div id="aimReticle" class="aim-reticle"><div class="aim-handle"></div><div class="aim-dot"></div></div>
+
+    <div id="laserBeam" class="laser-beam"></div>
+    <div id="travelStreak" class="travel-streak"></div>
+    <div id="screenFx" class="screen-fx" aria-hidden="true">
+        <div class="fx-scan-line"></div>
+        <div class="fx-lock-corners"></div>
+        <div class="fx-power-ring"></div>
+        <div class="fx-success-burst"></div>
+        <div class="fx-thrust-lines"></div>
+    </div>
+    
+    <div id="alienWarning" class="absolute top-[10%] right-[4%] z-[60] hidden pointer-events-none alien-warning">
+        <div class="bg-red-950/80 border-2 border-red-400 text-red-200 px-4 py-2 rounded-xl font-black text-xs shadow-[0_0_30px_rgba(248,113,113,.7)]">
+            ⚠ 외계 생명체 접근 — 조준하여 격추!
+        </div>
+    </div>
+    <div id="smokeDamage" class="smoke-damage"></div>
+    
+    <!-- 첫 화면 스캔 오버레이 -->
+    <div id="scanOverlay" class="scan-overlay">
+        <div class="scan-card">
+            <div class="text-cyan-300 text-xs font-orbitron tracking-widest">DEEP SPACE IMAGING SYSTEM</div>
+            <div id="scanInstruction" class="text-white text-xl md:text-2xl font-black mt-2">별 탐지 완료</div>
+            <div id="scanSubtext" class="text-slate-300 text-sm mt-2">탐사 대상을 스캔하시오</div>
+            <div class="scan-beam"></div>
+            <button id="scanButton" onclick="startStarScan()" class="w-full bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white font-black py-3 rounded-2xl border-2 border-cyan-300 shadow-[0_0_25px_rgba(34,211,238,.3)] transition cursor-pointer pointer-events-auto">
+                <i class="fa-solid fa-satellite-dish mr-2"></i> 별 스캔 시작
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. COCKPIT UI FRAME OVERLAY -->
+    <div id="cockpitRoot" class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between">
+        
+        <!-- 상단 양쪽 캐노피 프레임 바 -->
+        <div class="absolute top-0 left-0 w-full h-full pointer-events-none z-20 flex justify-between">
+            <div class="w-1/4 h-32 md:h-44 canopy-top-bar origin-top-left -rotate-12 translate-y-[-20px] translate-x-[-30px] border-b-4 border-black flex items-center justify-end pr-8">
+                <div class="flex gap-2">
+                    <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+                    <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
+                </div>
+            </div>
+            <div class="w-1/4 h-32 md:h-44 canopy-top-bar origin-top-right rotate-12 translate-y-[-20px] translate-x-[30px] border-b-4 border-black flex items-center justify-start pl-8">
+                <div class="flex gap-2">
+                    <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
+                    <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상단 헤더 -->
+        <header class="p-3 md:p-5 flex justify-between items-start pointer-events-auto z-30">
+            <div class="bg-slate-950/90 backdrop-blur-md border-2 border-amber-500/60 p-2.5 rounded-2xl flex items-center gap-3 shadow-2xl">
+                <div class="p-2.5 bg-amber-950/90 rounded-xl text-amber-400 border border-amber-500/50">
+                    <i class="fa-solid fa-rocket text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] text-amber-400 font-orbitron tracking-wider uppercase font-bold">대한우주탐사선 은하 1호</div>
+                    <div class="text-xs md:text-sm font-black text-slate-100">1인칭 조종석 관측 모드</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+                <div class="bg-slate-950/90 backdrop-blur-md border-2 border-slate-700 px-4 py-2 rounded-2xl flex flex-col items-center shadow-2xl">
+                    <span class="text-[10px] text-slate-400 font-bold">선체 보호막</span>
+                    <div id="shieldIcons" class="flex gap-2 text-red-500 text-base md:text-lg mt-0.5">
+                        <i class="fa-solid fa-heart animate-pulse"></i>
+                        <i class="fa-solid fa-heart animate-pulse"></i>
+                        <i class="fa-solid fa-heart animate-pulse"></i>
+                    </div>
+                </div>
+
+                <div class="special-score bg-slate-950/90 backdrop-blur-md border-2 border-fuchsia-500/60 px-3 py-2 rounded-2xl flex flex-col items-center shadow-2xl">
+                    <span class="text-[10px] text-fuchsia-300 font-bold">외계 생명체 격추</span>
+                    <div class="text-sm md:text-base font-black text-fuchsia-300 font-orbitron">
+                        <span id="specialScore">0</span> SP
+                    </div>
+                </div>
+
+                <button id="btnToggleCalc" class="bg-slate-950/90 hover:bg-slate-800 text-amber-400 border-2 border-amber-500/60 p-3 rounded-2xl backdrop-blur-md transition shadow-2xl flex items-center gap-1.5 text-xs font-bold">
+                    <i class="fa-solid fa-calculator text-sm"></i>
+                    <span class="hidden sm:inline">계산기</span>
+                </button>
+
+                <button id="btnGuide" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-2 border-amber-500/70 p-3 rounded-2xl backdrop-blur-md transition shadow-2xl flex items-center gap-1.5 text-xs font-bold">
+                    <i class="fa-solid fa-book-open text-sm"></i>
+                    <span class="hidden sm:inline">개념 요약집</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- [상단 대형 문제 박스] -->
+        <div class="absolute inset-x-0 top-[14%] md:top-[12%] flex justify-center items-center pointer-events-auto px-4 z-30">
+            <div id="questionOverlayCard" class="relative bg-slate-950/95 border-2 border-amber-500/80 backdrop-blur-lg rounded-3xl max-w-xl w-full p-4 md:p-5 shadow-[0_0_50px_rgba(245,158,11,0.35)] transition-all duration-300 glow-cyan">
+                
+                <!-- 외계 생명체 완벽 차단 가림막 레이어 -->
+                <div id="alienBlockCover" class="alien-block-cover" >
+                    <div class="text-red-400 text-xs font-black font-orbitron tracking-widest mb-1 animate-pulse">
+                        [ SYSTEM WARNING : UNKNOWN ALIEN BLOCKING ]
+                    </div>
+                    <div class="text-white text-sm font-bold mb-3">
+                        ⚠ 외계 생명체가 스크린을 차단했습니다! 격추하여 문제를 해제하세요!
+                    </div>
+                    <div id="monsterContainer" class="w-40 h-40 md:w-48 md:h-48 monster-bounce flex items-center justify-center my-1">
+                        <!-- JS에서 동적 SVG 생성 -->
+                    </div>
+                    <div class="text-amber-300 text-xs font-bold mt-2 bg-red-950/80 border border-red-500 px-3 py-1 rounded-full">
+                        🎯 클릭 또는 [SPACE]로 조준 사격하세요
+                    </div>
+                </div>
+
+                <!-- 문제 카드 헤더 -->
+                <div class="flex justify-between items-center border-b border-amber-500/30 pb-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span id="starTypeBadge" class="px-3 py-1 text-[11px] font-extrabold rounded-full bg-amber-950 text-amber-300 border border-amber-500/60">
+                            특성: 외계 귀여운 별
+                        </span>
+                        <span id="starName" class="text-sm md:text-base font-black text-white">외계 안테나 별</span>
+                    </div>
+                    <span id="problemProgress" class="text-xs font-bold text-amber-400 font-orbitron">탐사 목표 #1</span>
+                </div>
+
+                <!-- 탐사 질의문 -->
+                <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 mb-3 text-center min-h-[64px] flex items-center justify-center">
+                    <p id="questionPrompt" class="text-xs md:text-sm font-bold text-slate-100 leading-relaxed">
+                        탐사 대상 별을 발견했습니다. 스캔 데이터를 확인하세요.
+                    </p>
+                </div>
+
+                <!-- 객관식 보기 버튼 4개 -->
+                <div id="optionsContainer" class="grid grid-cols-2 gap-2.5">
+                    <!-- 스크립트 동적 생성 -->
+                </div>
+
+                <!-- 정답/오답 피드백 -->
+                <div id="feedbackText" class="text-center text-xs font-bold mt-2.5 min-h-[18px]"></div>
+            </div>
+        </div>
+
+        <!-- [하단 조종석 계기판 콘솔] -->
+        <footer class="cockpit-footer pointer-events-auto relative w-full pt-1 pb-2 px-2 md:px-6 flex justify-center items-end z-30 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent">
+            
+            <div class="w-full max-w-6xl relative flex items-end justify-between gap-1.5 md:gap-3">
+                
+                <!-- 1. 좌측 모니터 -->
+                <div class="flex-1 bg-slate-900/95 border-2 border-amber-600/70 rounded-t-3xl p-2.5 shadow-2xl relative overflow-hidden h-40 md:h-48 flex justify-between items-center gap-2">
+                    <div class="flex-1 h-full flex flex-col justify-between">
+                        <div class="text-[10px] md:text-xs font-bold text-amber-400 border-b border-amber-500/30 pb-1 flex justify-between">
+                            <span><i class="fa-solid fa-gauge-high mr-1"></i> 추진 속도 / 상태</span>
+                            <span class="text-emerald-400">온라인</span>
+                        </div>
+                        
+                        <div class="bg-black/80 p-2 rounded-xl border border-amber-500/30 text-center">
+                            <div class="text-[9px] text-slate-400 font-bold">현재 탐사 항해 속도</div>
+                            <div class="text-base md:text-xl font-black text-amber-300 font-orbitron">341 u/s</div>
+                        </div>
+
+                        <div class="space-y-1 text-[10px] text-slate-300">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">별의 색상/온도:</span>
+                                <span id="leftTempText" class="text-amber-300 font-bold">6,000 K (노란색)</span>
+                            </div>
+                            <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-amber-500/30">
+                                <div id="tempBar" class="bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500 h-full w-2/3"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col justify-between h-full bg-slate-950 p-2 rounded-2xl border border-slate-800 w-16 md:w-20 shrink-0">
+                        <span class="text-[9px] font-bold text-amber-400 text-center">추진 레버</span>
+                        <div id="shipLever" onclick="pullLever()" class="cursor-pointer w-full h-16 bg-gradient-to-b from-amber-600 via-slate-800 to-slate-900 rounded-xl border border-amber-500/50 flex flex-col items-center justify-start pt-1 shadow-inner active:translate-y-1 transition">
+                            <div class="w-8 h-8 bg-amber-500 border-2 border-amber-200 rounded-lg shadow-md flex items-center justify-center">
+                                <i class="fa-solid fa-bars-staggered text-slate-950 text-xs"></i>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between gap-1 mt-1">
+                            <button onclick="pressDeckButton('A')" class="flex-1 bg-red-600 active:bg-red-700 text-[8px] font-bold text-white py-1 rounded border border-red-400">PWR</button>
+                            <button onclick="pressDeckButton('B')" class="flex-1 bg-cyan-600 active:bg-cyan-700 text-[8px] font-bold text-white py-1 rounded border border-cyan-400">SCAN</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 중앙 레이더 모니터 & 머신건 -->
+                <div class="w-72 md:w-96 relative flex flex-col items-center z-10">
+                    <div class="w-full bg-black border-4 border-amber-600 rounded-t-3xl p-2.5 shadow-[0_-10px_40px_rgba(0,0,0,0.95)] flex flex-col items-center justify-between h-36 md:h-44">
+                        <div class="w-full flex justify-between items-center text-[10px] font-bold text-amber-400 border-b border-slate-800 pb-1">
+                            <span><i class="fa-solid fa-compass mr-1"></i> 중앙 별 분석 레이더 모니터</span>
+                            <span id="radarScanStatus" class="text-emerald-400 font-bold">조준 완료</span>
+                        </div>
+
+                        <div class="relative w-full flex-1 bg-slate-950 rounded-2xl border border-amber-500/40 my-1 p-2 flex items-center justify-between overflow-hidden shadow-inner">
+                            <div class="absolute inset-0 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:14px_14px] opacity-25"></div>
+                            
+                            <div class="flex-1 bg-black/85 p-2 rounded-xl border border-amber-500/50 text-center mx-1 z-10">
+                                <div class="text-[9px] text-slate-400 font-bold">별의 실제 거리</div>
+                                <div id="centerDistanceText" class="text-xs md:text-sm font-black text-amber-300 font-orbitron mt-0.5">100 pc</div>
+                            </div>
+
+                            <div class="relative w-10 h-10 rounded-full border border-amber-500/60 flex items-center justify-center bg-amber-950/30 shrink-0">
+                                <i class="fa-solid fa-crosshairs text-amber-400 text-base animate-spin"></i>
+                            </div>
+
+                            <div class="flex-1 bg-black/85 p-2 rounded-xl border border-cyan-500/50 text-center mx-1 z-10">
+                                <div class="text-[9px] text-slate-400 font-bold">겉보기 등급 (m)</div>
+                                <div id="centerApparentText" class="text-xs md:text-sm font-black text-cyan-300 font-orbitron mt-0.5">+3 등급</div>
+                            </div>
+                        </div>
+
+                        <div class="w-full text-center text-xs text-slate-300 font-bold flex justify-around items-center border-t border-slate-800 pt-1">
+                            <span>관측 성공 별: <strong id="scoreCount" class="text-amber-400 text-sm font-orbitron">0</strong> 개</span>
+                            <span class="text-[10px] text-amber-500">10 pc 기준 절대 등급 산출 중</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full relative h-28 -mt-5 pointer-events-auto flex justify-center items-end">
+                        <div id="machineGunRig" class="machinegun-rig cursor-crosshair" title="십자 표적을 끌어서 조준하고, 표적을 눌러 발사">
+                            <div class="machinegun-body">
+                                <div class="machinegun-barrel"></div>
+                                <div class="machinegun-screen">LASER</div>
+                                <div class="machinegun-grip"></div>
+                                <div class="machinegun-trigger"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 우측 모니터 -->
+                <div class="flex-1 bg-slate-900/95 border-2 border-amber-600/70 rounded-t-3xl p-2.5 shadow-2xl relative overflow-hidden h-40 md:h-48 flex flex-col justify-between">
+                    <div class="text-[10px] md:text-xs font-bold text-amber-400 border-b border-amber-500/30 pb-1 flex justify-between">
+                        <span><i class="fa-solid fa-sliders mr-1"></i> 우측 조작 버튼 콘솔</span>
+                        <span class="text-cyan-400">정상 가동</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-1.5 my-1">
+                        <button onclick="pressDeckButton('S1')" class="bg-slate-800 hover:bg-slate-700 active:bg-amber-600 border border-slate-600 text-slate-200 text-[10px] font-bold p-1.5 rounded-xl transition flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-satellite text-amber-400"></i> 센서 재스캔
+                        </button>
+                        <button onclick="pressDeckButton('S2')" class="bg-slate-800 hover:bg-slate-700 active:bg-cyan-600 border border-slate-600 text-slate-200 text-[10px] font-bold p-1.5 rounded-xl transition flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-lightbulb text-cyan-400"></i> 조경 조명
+                        </button>
+                    </div>
+
+                    <div class="bg-black/80 p-2 rounded-xl border border-slate-800 text-[9px] md:text-[10px] text-slate-300 leading-tight min-h-[50px] flex flex-col justify-center">
+                        <strong class="text-amber-400">조종사 탐사 가이드:</strong>
+                        <span id="alienGuideWarning" class="hidden text-red-500 font-black animate-pulse my-0.5">⚠ 외계 생명체를 격추하세요!</span>
+                        <span id="guideNormalText">겉보기 등급(m)에서 절대 등급(M)을 계산할 때 별을 10 pc 거리에 놓았을 때를 상상하세요!</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 외부 레버 및 버튼 -->
+            <div class="absolute left-1 md:left-3 bottom-5 md:bottom-8 hidden sm:flex flex-col gap-2 pointer-events-auto z-40">
+                <div class="bg-slate-950/90 border-2 border-cyan-500/50 rounded-xl p-2 shadow-2xl">
+                    <div class="text-[8px] text-cyan-300 font-bold mb-1 text-center">AUX</div>
+                    <div class="flex gap-1">
+                        <button onclick="pressDeckButton('EXT1')" class="w-7 h-7 rounded-lg bg-red-700 border border-red-300 text-[8px]">R</button>
+                        <button onclick="pressDeckButton('EXT2')" class="w-7 h-7 rounded-lg bg-cyan-700 border border-cyan-300 text-[8px]">S</button>
+                    </div>
+                </div>
+                <div id="externalLever" onclick="pullExternalLever()" class="w-12 h-16 rounded-xl border-2 border-amber-500/70 bg-slate-950 shadow-2xl cursor-pointer flex items-center justify-center">
+                    <div class="w-3 h-11 rounded-full bg-gradient-to-r from-slate-500 to-slate-200 shadow-lg"></div>
+                </div>
+            </div>
+
+            <div class="absolute right-1 md:right-3 bottom-5 md:bottom-8 hidden sm:flex flex-col gap-2 pointer-events-auto z-40">
+                <div class="bg-slate-950/90 border-2 border-amber-500/50 rounded-xl p-2 shadow-2xl">
+                    <div class="text-[8px] text-amber-300 font-bold mb-1 text-center">SYSTEM</div>
+                    <div class="flex gap-1">
+                        <button onclick="pressDeckButton('EXT3')" class="w-7 h-7 rounded-lg bg-amber-700 border border-amber-300 text-[8px]">A</button>
+                        <button onclick="pressDeckButton('EXT4')" class="w-7 h-7 rounded-lg bg-emerald-700 border border-emerald-300 text-[8px]">B</button>
+                    </div>
+                </div>
+                <div class="flex gap-1 justify-center">
+                    <button onclick="pressDeckButton('EXT5')" class="w-9 h-7 rounded bg-slate-800 border border-slate-500 text-[8px]">LOCK</button>
+                    <button onclick="fireMachineGun()" class="w-9 h-7 rounded bg-red-700 border border-red-300 text-[8px]">FIRE</button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 3. DAMAGE OVERLAYS -->
+    <div id="damageRedOverlay" class="absolute inset-0 z-40 pointer-events-none opacity-0 bg-red-600/40 transition-opacity duration-300"></div>
+
+    <div id="cockpitCracks" class="absolute inset-0 z-40 pointer-events-none opacity-0 transition-opacity duration-500">
+        <svg class="w-full h-full text-slate-100/90" xmlns="http://www.w3.org/2000/svg">
+            <g id="crackLayer1" class="crack-layer">
+                <path d="M 280 140 L 380 260 L 510 240 M 380 260 L 330 380 M 380 260 L 450 320 M 380 260 L 250 220" stroke="rgba(255,255,255,0.9)" stroke-width="3.5" fill="none"/>
+                <path d="M 850 400 L 730 280 L 610 320 M 730 280 L 680 180 M 730 280 L 800 200 M 730 280 L 880 300" stroke="rgba(255,255,255,0.9)" stroke-width="3.5" fill="none"/>
+            </g>
+            <g id="crackLayer2" class="crack-layer">
+                <path d="M 120 510 L 250 430 L 330 455 L 410 390 M 250 430 L 220 330 M 330 455 L 365 560" stroke="rgba(255,255,255,0.82)" stroke-width="3" fill="none"/>
+                <path d="M 1140 520 L 1010 430 L 930 455 L 845 385 M 1010 430 L 1040 325 M 930 455 L 900 560" stroke="rgba(255,255,255,0.82)" stroke-width="3" fill="none"/>
+            </g>
+            <g id="crackLayer3" class="crack-layer">
+                <path d="M 40 250 L 150 285 L 210 235 M 150 285 L 135 175 M 600 120 L 650 205 L 720 155 M 650 205 L 625 300" stroke="rgba(255,255,255,0.75)" stroke-width="2.6" fill="none"/>
+                <path d="M 1240 250 L 1130 285 L 1070 235 M 1130 285 L 1145 175 M 600 680 L 650 595 L 720 645 M 650 595 L 625 500" stroke="rgba(255,255,255,0.75)" stroke-width="2.6" fill="none"/>
+            </g>
+        </svg>
+    </div>
+
+    <!-- 4. CALCULATOR MODAL -->
+    <div id="calcWidget" class="fixed top-20 right-6 z-50 bg-slate-900/95 border-2 border-amber-500/70 rounded-3xl p-4 w-72 shadow-2xl backdrop-blur-md hidden pointer-events-auto">
+        <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-800">
+            <span class="text-xs font-bold text-amber-400 font-orbitron"><i class="fa-solid fa-calculator mr-1"></i> 조종석 수치 계산기</span>
+            <button id="btnCloseCalc" class="text-slate-400 hover:text-white text-sm"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input id="calcDisplay" type="text" readonly value="0" class="w-full bg-slate-950 text-right text-xl font-orbitron text-amber-300 px-3 py-2.5 rounded-xl border border-slate-800 mb-3 font-bold">
+        <div class="grid grid-cols-4 gap-2 text-xs font-orbitron font-bold">
+            <button onclick="calcInput('C')" class="bg-red-950/80 text-red-300 p-2.5 rounded-xl hover:bg-red-900">C</button>
+            <button onclick="calcInput('(')" class="bg-slate-800 text-slate-300 p-2.5 rounded-xl hover:bg-slate-700">(</button>
+            <button onclick="calcInput(')')" class="bg-slate-800 text-slate-300 p-2.5 rounded-xl hover:bg-slate-700">)</button>
+            <button onclick="calcInput('/')" class="bg-amber-950 text-amber-300 p-2.5 rounded-xl hover:bg-amber-900">÷</button>
+            
+            <button onclick="calcInput('7')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">7</button>
+            <button onclick="calcInput('8')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">8</button>
+            <button onclick="calcInput('9')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">9</button>
+            <button onclick="calcInput('*')" class="bg-amber-950 text-amber-300 p-2.5 rounded-xl hover:bg-amber-900">×</button>
+            
+            <button onclick="calcInput('4')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">4</button>
+            <button onclick="calcInput('5')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">5</button>
+            <button onclick="calcInput('6')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">6</button>
+            <button onclick="calcInput('-')" class="bg-amber-950 text-amber-300 p-2.5 rounded-xl hover:bg-amber-900">-</button>
+            
+            <button onclick="calcInput('1')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">1</button>
+            <button onclick="calcInput('2')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">2</button>
+            <button onclick="calcInput('3')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">3</button>
+            <button onclick="calcInput('+')" class="bg-amber-950 text-amber-300 p-2.5 rounded-xl hover:bg-amber-900">+</button>
+            
+            <button onclick="calcInput('0')" class="col-span-2 bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">0</button>
+            <button onclick="calcInput('.')" class="bg-slate-800 text-white p-2.5 rounded-xl hover:bg-slate-700">.</button>
+            <button onclick="calcEval()" class="bg-emerald-600 text-white p-2.5 rounded-xl hover:bg-emerald-500">=</button>
+        </div>
+    </div>
+
+    <!-- 5. CONCEPT GUIDE MODAL -->
+    <div id="guideModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border-2 border-amber-500/70 rounded-3xl max-w-xl w-full p-6 text-slate-100 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+            <button id="btnCloseGuide" class="absolute top-5 right-5 text-slate-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="flex items-center gap-2.5 text-amber-400 font-bold text-xl mb-4">
+                <i class="fa-solid fa-graduation-cap text-2xl"></i>
+                <h3>중학교 과학: 별의 등급 및 거리 계산 정리</h3>
+            </div>
+
+            <div class="space-y-3.5 text-xs md:text-sm leading-relaxed text-slate-300">
+                <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="font-bold text-amber-300 text-sm mb-1">1. 겉보기 등급(m)과 절대 등급(M)</div>
+                    <p>• <strong>겉보기 등급 (m)</strong>: 지구에서 우리 눈으로 볼 때 별이 보이는 실제 밝기입니다.</p>
+                    <p>• <strong>절대 등급 (M)</strong>: 모든 별을 동일하게 <strong>10 pc (약 32.6 광년)</strong> 거리에 놓았다고 가정할 때의 원래 고유한 밝기입니다.</p>
+                </div>
+
+                <div class="bg-amber-950/40 p-3.5 rounded-2xl border border-amber-500/40">
+                    <div class="font-bold text-cyan-300 text-sm mb-1">2. 빠른 절대 등급 계산 규칙</div>
+                    <ul class="space-y-1.5">
+                        <li>• <strong>별의 거리 = 10 pc</strong> → 겉보기 등급과 절대 등급이 같습니다 (<strong>m = M</strong>).</li>
+                        <li>• <strong>별의 거리 = 100 pc</strong> → 10 pc 위치로 끌어당기면 10배 가까워져 100배 밝아집니다 → <strong>M = m - 5</strong></li>
+                        <li>• <strong>별의 거리 = 1 pc</strong> → 10 pc 위치로 밀어내면 10배 멀어져 100배 어두워집니다 → <strong>M = m + 5</strong></li>
+                        <li>• <strong>밝기 법칙</strong>: 1등급 차이는 약 2.5배, 5등급 차이는 정확히 100배 밝기 차이입니다.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="font-bold text-emerald-300 text-sm mb-1">3. 별의 색깔과 표면 온도 관계</div>
+                    <p class="mb-2">별의 색깔은 별의 표면 온도를 나타냅니다.</p>
+                    <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-700 font-bold flex justify-between text-xs text-center">
+                        <span class="text-blue-400">청색 (가장 고온)</span> &gt;
+                        <span class="text-slate-100">흰색</span> &gt;
+                        <span class="text-yellow-400">노란색</span> &gt;
+                        <span class="text-orange-400">주황색</span> &gt;
+                        <span class="text-red-400">적색 (저온)</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btnConfirmGuide" class="w-full mt-5 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-2xl transition text-sm">
+                확인 후 조종석으로 복귀
+            </button>
+        </div>
+    </div>
+
+    <!-- 6. GAME OVER MODAL -->
+    <div id="gameOverModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border-2 border-red-500/80 rounded-3xl max-w-md w-full p-6 text-slate-100 text-center relative shadow-2xl">
+            <div class="w-20 h-20 bg-red-950/80 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50 text-red-500 text-4xl shadow-lg animate-bounce">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h2 class="text-2xl font-black text-red-400 font-orbitron mb-2">조종석 유리창 파손 경고</h2>
+            <p class="text-xs md:text-sm text-slate-300 mb-6 leading-relaxed">
+                오답 누적으로 인하여 우주선 보호막이 파손되었습니다.<br>개념 요약집을 확인하고 재정비 후 다시 출격하세요!
+            </p>
+            <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 mb-6 flex justify-between items-center text-xs">
+                <span class="text-slate-400 font-bold">성공적으로 관측한 별:</span>
+                <div class="text-right">
+                    <span id="finalScore" class="text-amber-400 font-black font-orbitron text-lg">0 개</span>
+                    <div class="text-[10px] text-fuchsia-300 font-bold">외계 생명체 격추: <span id="finalSpecialScore">0 SP</span></div>
+                </div>
+            </div>
+            <button id="btnRestart" class="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black py-3.5 rounded-2xl transition font-orbitron text-sm shadow-xl">
+                조종석 수리 후 다시 출발
+            </button>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        /* ===================================================================
+           1. AUDIO SYNTHESIZER
+           =================================================================== */
+        class CockpitAudio {
+            constructor() { this.ctx = null; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            
+            playWarp() {
+                this.init(); if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(700, this.ctx.currentTime + 0.8);
+                gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + 0.2);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.8);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.8);
+            }
+
+            playSuccess() {
+                this.init(); if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(f, now + i * 0.08);
+                    gain.gain.setValueAtTime(0.12, now + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.08); osc.stop(now + i * 0.08 + 0.25);
+                });
+            }
+
+            playDamage() {
+                this.init(); if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(45, now + 0.4);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(now + 0.4);
+            }
+
+            playClick() {
+                this.init(); if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+            }
+        }
+        const audio = new CockpitAudio();
+
+
+        /* ===================================================================
+           2. THREE.JS 3D SCENE & MONSTER SVGs
+           =================================================================== */
+        let scene, camera, renderer;
+        let starGroup;
+        let environmentGroup;
+        let alienActive = false;
+        let aimX = window.innerWidth / 2;
+        let aimY = window.innerHeight * 0.48;
+        let lastAlienSpawn = 0;
+        let alienMisses = 0;
+        let planetIndex = 0;
+        let scanInProgress = false;
+
+        const monsterSVGs = [
+            `<svg viewBox="0 0 100 120" class="w-full h-full filter drop-shadow-lg">
+                <path d="M50 15 C25 15 20 40 20 65 C20 80 30 85 50 85 C70 85 80 80 80 65 C80 40 75 15 50 15 Z" fill="#FACC15"/>
+                <path d="M50 10 L50 17" stroke="#E11D48" stroke-width="4" stroke-linecap="round"/>
+                <polygon points="50,5 46,15 54,15" fill="#E11D48"/>
+                <path d="M30 80 L28 115 M38 82 L38 115 M62 82 L62 115 M70 80 L72 115" stroke="#FACC15" stroke-width="4.5" stroke-linecap="round"/>
+                <circle cx="50" cy="42" r="14" fill="#FFFFFF"/>
+                <circle cx="50" cy="42" r="6" fill="#0F172A"/>
+                <path d="M36 62 Q50 52 64 62" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            </svg>`,
+            `<svg viewBox="0 0 100 120" class="w-full h-full filter drop-shadow-lg">
+                <path d="M30 35 L30 5 M70 35 L70 5" stroke="#38BDF8" stroke-width="6" stroke-linecap="round"/>
+                <circle cx="30" cy="5" r="4" fill="#38BDF8"/>
+                <circle cx="70" cy="5" r="4" fill="#38BDF8"/>
+                <rect x="25" y="30" width="50" height="50" rx="20" fill="#38BDF8"/>
+                <path d="M38 78 L34 115 M62 78 L66 115" stroke="#1E3A8A" stroke-width="5" stroke-linecap="round"/>
+                <circle cx="35" cy="45" r="5" fill="#FFF"/><circle cx="35" cy="45" r="2" fill="#000"/>
+                <circle cx="50" cy="42" r="6" fill="#FFF"/><circle cx="50" cy="42" r="2.5" fill="#000"/>
+                <circle cx="65" cy="45" r="5" fill="#FFF"/><circle cx="65" cy="45" r="2" fill="#000"/>
+                <path d="M42 62 Q50 72 58 62" fill="#4ADE80" stroke="#1E3A8A" stroke-width="2"/>
+            </svg>`,
+            `<svg viewBox="0 0 100 120" class="w-full h-full filter drop-shadow-lg">
+                <path d="M25 50 C20 30 80 30 75 50 C80 90 20 90 25 50 Z" fill="#4ADE80"/>
+                <path d="M28 62 Q50 68 72 62 M26 74 Q50 80 74 74" stroke="#0D9488" stroke-width="5" fill="none"/>
+                <circle cx="36" cy="42" r="4" fill="#FFF"/><circle cx="36" cy="42" r="2" fill="#000"/>
+                <circle cx="50" cy="38" r="5" fill="#FFF"/><circle cx="50" cy="38" r="2.5" fill="#000"/>
+                <circle cx="64" cy="42" r="4" fill="#FFF"/><circle cx="64" cy="42" r="2" fill="#000"/>
+                <path d="M40 52 Q50 46 60 52" fill="#000"/>
+                <path d="M20 52 L5 38 M80 52 L95 38 M25 80 L12 95 M75 80 L88 95" stroke="#4ADE80" stroke-width="5" stroke-linecap="round"/>
+            </svg>`,
+            `<svg viewBox="0 0 100 120" class="w-full h-full filter drop-shadow-lg">
+                <path d="M50 20 C25 20 20 45 20 65 C20 75 30 80 50 80 C70 80 80 75 80 65 C80 45 75 20 50 20 Z" fill="#F472B6"/>
+                <circle cx="35" cy="35" r="4" fill="#FBBF24"/>
+                <circle cx="65" cy="45" r="5" fill="#FBBF24"/>
+                <circle cx="40" cy="65" r="3" fill="#FBBF24"/>
+                <circle cx="40" cy="45" r="6" fill="#FFF"/><circle cx="40" cy="45" r="3" fill="#000"/>
+                <circle cx="60" cy="45" r="6" fill="#FFF"/><circle cx="60" cy="45" r="3" fill="#000"/>
+                <path d="M42 58 Q50 68 58 58" stroke="#831843" stroke-width="3" fill="#831843"/>
+                <path d="M22 75 Q10 90 20 105 M38 78 Q28 95 35 110 M62 78 Q72 95 65 110 M78 75 Q90 90 80 105" stroke="#F472B6" stroke-width="7" fill="none" stroke-linecap="round"/>
+            </svg>`,
+            `<svg viewBox="0 0 100 120" class="w-full h-full filter drop-shadow-lg">
+                <path d="M25 50 Q5 30 0 55 Q15 65 25 60 Z M75 50 Q95 30 100 55 Q85 65 75 60 Z" fill="#7E22CE"/>
+                <circle cx="50" cy="60" r="28" fill="#C084FC"/>
+                <circle cx="40" cy="55" r="5" fill="#FFF"/><circle cx="40" cy="55" r="2" fill="#000"/>
+                <circle cx="60" cy="55" r="5" fill="#FFF"/><circle cx="60" cy="55" r="2" fill="#000"/>
+                <path d="M44 68 Q50 74 56 68" stroke="#581C87" stroke-width="3" fill="none"/>
+                <path d="M38 85 Q30 98 34 105 M62 85 Q70 98 66 105" stroke="#C084FC" stroke-width="4" stroke-linecap="round"/>
+            </svg>`,
+            `<svg viewBox="0 0 100 120" class="w-full h-full filter drop-shadow-lg">
+                <path d="M20 35 Q10 10 32 25 M80 35 Q90 10 68 25" stroke="#67E8F9" stroke-width="8" fill="none" stroke-linecap="round"/>
+                <rect x="22" y="25" width="56" height="65" rx="22" fill="#2DD4BF"/>
+                <path d="M22 65 Q50 72 78 65 L78 75 Q50 82 22 75 Z" fill="#FACC15"/>
+                <circle cx="38" cy="45" r="5" fill="#FFF"/><circle cx="38" cy="45" r="2" fill="#000"/>
+                <circle cx="62" cy="45" r="5" fill="#FFF"/><circle cx="62" cy="45" r="2" fill="#000"/>
+                <path d="M40 54 Q50 64 60 54 Z" fill="#0F172A"/>
+                <path d="M12 45 L22 50 M88 45 L78 50 M32 88 L28 112 M68 88 L72 112" stroke="#2DD4BF" stroke-width="6" stroke-linecap="round"/>
+            </svg>`
+        ];
+
+        function initThreeJS() {
+            const container = document.getElementById('canvasContainer');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x020617, 0.03);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 7);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.9);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfde047, 1.6);
+            sunLight.position.set(10, 20, 10);
+            scene.add(sunLight);
+
+            environmentGroup = new THREE.Group();
+            scene.add(environmentGroup);
+            setPlanetEnvironment(0);
+
+            starGroup = new THREE.Group();
+            scene.add(starGroup);
+
+            window.addEventListener('resize', onWindowResize);
+            animateThreeJS();
+        }
+
+        const planetThemes = [
+            {name:"VERDANT FOREST", label:"초록빛 생명 행성", kind:"forest"},
+            {name:"CRYSTAL CAVERNS", label:"거대한 보석 행성", kind:"crystal"},
+            {name:"FROZEN WORLD", label:"얼음 폭풍 행성", kind:"ice"},
+            {name:"EMBER OCEAN", label:"불꽃 바다 행성", kind:"fire"},
+            {name:"NEON JUNGLE", label:"네온 정글 행성", kind:"neon"}
+        ];
+
+        function clearEnvironment() {
+            if (!environmentGroup) return;
+            while (environmentGroup.children.length) {
+                const obj = environmentGroup.children.pop();
+                obj.traverse(o => {
+                    if (o.geometry) o.geometry.dispose();
+                    if (o.material) {
+                        if (Array.isArray(o.material)) o.material.forEach(m=>m.dispose());
+                        else o.material.dispose();
+                    }
+                });
+            }
+        }
+
+        function setPlanetEnvironment(idx) {
+            if (!environmentGroup) return;
+            const theme = planetThemes[idx % planetThemes.length];
+            clearEnvironment();
+
+            const groundGeo = new THREE.PlaneGeometry(180,180,50,50);
+            groundGeo.rotateX(-Math.PI/2);
+            const pos = groundGeo.attributes.position;
+            for(let i=0;i<pos.count;i++){
+                const x=pos.getX(i), z=pos.getZ(i);
+                pos.setY(i, -3 + Math.sin(x*.09)*Math.cos(z*.07)*1.7 + Math.sin(z*.15)*.45);
+            }
+            groundGeo.computeVertexNormals();
+
+            const mats = {
+                forest: new THREE.MeshStandardMaterial({color:0x14532d,roughness:.95}),
+                crystal: new THREE.MeshStandardMaterial({color:0x312e81,roughness:.25,metalness:.5}),
+                ice: new THREE.MeshStandardMaterial({color:0x93c5fd,roughness:.2,metalness:.15}),
+                fire: new THREE.MeshStandardMaterial({color:0x431407,roughness:.75}),
+                neon: new THREE.MeshStandardMaterial({color:0x172554,roughness:.65})
+            };
+            environmentGroup.add(new THREE.Mesh(groundGeo,mats[theme.kind]));
+
+            if(theme.kind==="forest") createForestEnvironment();
+            if(theme.kind==="crystal") createCrystalEnvironment();
+            if(theme.kind==="ice") createIceEnvironment();
+            if(theme.kind==="fire") createFireEnvironment();
+            if(theme.kind==="neon") createNeonEnvironment();
+
+            scene.background = new THREE.Color(
+                {forest:0x071a12,crystal:0x120a2b,ice:0x0b1d32,fire:0x260705,neon:0x05051a}[theme.kind]
+            );
+            scene.fog = new THREE.FogExp2(scene.background.getHex(), theme.kind==="ice" ? .018 : .026);
+            document.getElementById('planetBadge').innerText = `${theme.name} · ${theme.label}`;
+            planetIndex = idx % planetThemes.length;
+        }
+
+        function addPrimitive(geo, mat, x,y,z, sx=1,sy=1,sz=1, rotY=0) {
+            const m = new THREE.Mesh(geo,mat);
+            m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.rotation.y=rotY;
+            environmentGroup.add(m); return m;
+        }
+
+        function createForestEnvironment(){
+            const trunk=new THREE.CylinderGeometry(.12,.2,2.2,7);
+            const leaf=new THREE.ConeGeometry(.8,2.5,7);
+            const tm=new THREE.MeshStandardMaterial({color:0x78350f});
+            const lm=new THREE.MeshStandardMaterial({color:0x22c55e});
+            for(let i=0;i<35;i++){
+                const x=(Math.random()-.5)*70,z=-8-Math.random()*65;
+                addPrimitive(trunk,tm,x,-1.9,z,1,1+Math.random()*.8,1);
+                addPrimitive(leaf,lm,x,-.1,z,.8+Math.random()*.7,1, .8+Math.random()*.7);
+            }
+        }
+        function createCrystalEnvironment(){
+            const geo=new THREE.OctahedronGeometry(1,0);
+            const mats=[0x22d3ee,0xa78bfa,0xf472b6,0x60a5fa].map(c=>new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.28,metalness:.55,roughness:.2}));
+            for(let i=0;i<55;i++){
+                const x=(Math.random()-.5)*65,z=-8-Math.random()*65;
+                addPrimitive(geo,mats[i%4],x,-2+Math.random()*2.2,z,.25+Math.random()*.65,1+Math.random()*2,.25+Math.random()*.65,Math.random()*Math.PI);
+            }
+        }
+        function createIceEnvironment(){
+            const geo=new THREE.ConeGeometry(.7,2.6,6);
+            const mat=new THREE.MeshStandardMaterial({color:0xe0f2fe,transparent:true,opacity:.82,roughness:.1,metalness:.1});
+            for(let i=0;i<42;i++){
+                const x=(Math.random()-.5)*75,z=-10-Math.random()*65;
+                addPrimitive(geo,mat,x,-1.8,z,.7+Math.random()*.8,1+Math.random()*1.7,.7+Math.random()*.8,Math.random()*Math.PI);
+            }
+            const snow=new THREE.Points(new THREE.BufferGeometry(),new THREE.PointsMaterial({color:0xffffff,size:.08}));
+            const pts=[];
+            for(let i=0;i<700;i++) pts.push((Math.random()-.5)*90,Math.random()*35-2,-Math.random()*80);
+            snow.geometry.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+            environmentGroup.add(snow);
+        }
+        function createFireEnvironment(){
+            const rock=new THREE.DodecahedronGeometry(.8,0);
+            const mat=new THREE.MeshStandardMaterial({color:0x7f1d1d,emissive:0xea580c,emissiveIntensity:.5,roughness:.8});
+            const ember=new THREE.MeshBasicMaterial({color:0xfbbf24});
+            for(let i=0;i<45;i++){
+                const x=(Math.random()-.5)*70,z=-8-Math.random()*65;
+                addPrimitive(rock,mat,x,-2+Math.random()*2,z,.5+Math.random(),.5+Math.random()*1.8,.5+Math.random());
+                if(i%3===0) addPrimitive(new THREE.SphereGeometry(.08,8,8),ember,x,-.2+Math.random()*2,z);
+            }
+        }
+        function createNeonEnvironment(){
+            const trunk=new THREE.CylinderGeometry(.08,.18,3.2,6);
+            const mat=new THREE.MeshStandardMaterial({color:0x1d4ed8,emissive:0x22d3ee,emissiveIntensity:1.4});
+            const glow=new THREE.MeshBasicMaterial({color:0xf0abfc});
+            for(let i=0;i<40;i++){
+                const x=(Math.random()-.5)*70,z=-8-Math.random()*65;
+                addPrimitive(trunk,mat,x,-1.5,z,.8+Math.random(),1+Math.random()*1.8,.8+Math.random());
+                if(i%2===0) addPrimitive(new THREE.SphereGeometry(.16,12,12),glow,x,1.2+Math.random()*2,z);
+            }
+        }
+
+        function spawnAlien(){
+            if(alienActive) return;
+            alienActive = true;
+
+            const container = document.getElementById('monsterContainer');
+            const randomMonster = monsterSVGs[Math.floor(Math.random() * monsterSVGs.length)];
+            container.innerHTML = randomMonster;
+
+            const cover = document.getElementById('alienBlockCover');
+            cover.classList.remove('hit');
+            void cover.offsetWidth;
+            cover.classList.add('active');
+
+            document.getElementById('alienWarning').classList.remove('hidden');
+            const guideWarn = document.getElementById('alienGuideWarning');
+            if(guideWarn) guideWarn.classList.remove('hidden');
+
+            lastAlienSpawn = Date.now();
+        }
+
+        function hideAlien(){
+            alienActive = false;
+            alienHitting = false;
+            const cover = document.getElementById('alienBlockCover');
+            if(cover){ 
+                cover.classList.remove('active', 'hit'); 
+            }
+            document.getElementById('alienWarning').classList.add('hidden');
+            const guideWarn = document.getElementById('alienGuideWarning');
+            if(guideWarn) guideWarn.classList.add('hidden');
+        }
+
+        let alienHitting = false;
+        function tryHitAlien(){
+            if(!alienActive || alienHitting) return false;
+            alienHitting = true;
+            
+            gameState.specialScore++;
+            document.getElementById('specialScore').innerText = gameState.specialScore;
+            document.getElementById('feedbackText').innerText = "외계 생명체 격추 성공! 가림막이 해제되었습니다. (+1 SP)";
+            document.getElementById('feedbackText').className = "text-center text-xs font-black text-fuchsia-300";
+            
+            audio.playSuccess();
+            const cover = document.getElementById('alienBlockCover');
+            cover.classList.add('hit');
+            triggerScreenEffect('success');
+            
+            setTimeout(hideAlien, 280);
+            return true;
+        }
+
+        function buildCuteCreativeStar(typeKey, colorHex) {
+            while (starGroup.children.length > 0) {
+                starGroup.remove(starGroup.children[0]);
+            }
+
+            const mainMat = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                emissive: colorHex,
+                emissiveIntensity: 0.5,
+                roughness: 0.3
+            });
+
+            const cuteGroup = new THREE.Group();
+
+            switch (typeKey) {
+                case 'ALIEN_STAR':
+                    const body = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), mainMat);
+                    cuteGroup.add(body);
+                    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                    const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), eyeMat);
+                    eye1.position.set(-0.4, 0.3, 1.1);
+                    const eye2 = eye1.clone();
+                    eye2.position.set(0.4, 0.3, 1.1);
+                    cuteGroup.add(eye1, eye2);
+                    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), mainMat);
+                    ant.position.set(0, 1.4, 0);
+                    const antBall = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+                    antBall.position.set(0, 1.8, 0);
+                    cuteGroup.add(ant, antBall);
+                    break;
+
+                case 'TREE_PLANET':
+                    const planetBody = new THREE.Mesh(new THREE.SphereGeometry(1.2, 24, 24), mainMat);
+                    cuteGroup.add(planetBody);
+                    const miniTreeGeo = new THREE.ConeGeometry(0.25, 0.7, 4);
+                    const miniTreeMat = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+                    for (let i = 0; i < 6; i++) {
+                        const miniTree = new THREE.Mesh(miniTreeGeo, miniTreeMat);
+                        const angle = (i / 6) * Math.PI * 2;
+                        miniTree.position.set(Math.cos(angle) * 1.3, Math.sin(angle) * 1.3, 0);
+                        miniTree.rotation.z = angle - Math.PI / 2;
+                        cuteGroup.add(miniTree);
+                    }
+                    break;
+
+                case 'CYBER_CITY':
+                    const cityCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1, 1), mainMat);
+                    cuteGroup.add(cityCore);
+                    const towerGeo = new THREE.BoxGeometry(0.15, 0.8, 0.15);
+                    const towerMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
+                    for (let i = 0; i < 8; i++) {
+                        const tower = new THREE.Mesh(towerGeo, towerMat);
+                        tower.position.set((Math.random() - 0.5) * 1.6, 1.0 + Math.random() * 0.4, (Math.random() - 0.5) * 1.6);
+                        cuteGroup.add(tower);
+                    }
+                    break;
+
+                case 'JELLY_COSMOS':
+                    const cap = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), mainMat);
+                    cuteGroup.add(cap);
+                    const tentMat = new THREE.MeshBasicMaterial({ color: colorHex, wireframe: true });
+                    for (let i = 0; i < 5; i++) {
+                        const tent = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.01, 1.5), tentMat);
+                        tent.position.set(Math.cos(i) * 0.6, -0.8, Math.sin(i) * 0.6);
+                        cuteGroup.add(tent);
+                    }
+                    break;
+
+                default:
+                    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.3, 0), mainMat);
+                    cuteGroup.add(crystal);
+            }
+
+            starGroup.add(cuteGroup);
+            starGroup.position.set(0, 2.3, 0);
+        }
+
+        function animateThreeJS() {
+            requestAnimationFrame(animateThreeJS);
+
+            if (starGroup) {
+                starGroup.rotation.y += 0.01;
+                starGroup.position.y = 2.3 + Math.sin(Date.now() * 0.002) * 0.15;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            updateAim(window.innerWidth/2, Math.min(aimY, window.innerHeight-25));
+        }
+
+
+        /* ===================================================================
+           3. QUESTION BANK
+           =================================================================== */
+        const starTypesData = [
+            { key: "ALIEN_STAR", name: "외계 안테나 별", hex: 0x38bdf8, tempStr: "30,000 K (청색)" },
+            { key: "TREE_PLANET", name: "숲과 나무 행성별", hex: 0x4ade80, tempStr: "6,000 K (노란색)" },
+            { key: "CYBER_CITY", name: "우주 도시 결정별", hex: 0xf8fafc, tempStr: "10,000 K (흰색)" },
+            { key: "JELLY_COSMOS", name: "우주 해파리 성단", hex: 0xf97316, tempStr: "4,500 K (주황색)" },
+            { key: "CRYSTAL", name: "크리스탈 적색 거성", hex: 0xef4444, tempStr: "3,000 K (적색)" }
+        ];
+
+        const starNames = [
+            "시리우스-A", "베가-X", "알타이르-9", "베텔게우스-Z", "리겔-프라임", 
+            "프로키온-B", "폴룩스-7", "데네브-Alpha", "스피카-3", "안타레스-Omega"
+        ];
+
+        function createQuestionBank() {
+            const bank = [];
+
+            const tempQuestions = [
+                {
+                    q: "조종석 관측창에 발견된 별들 중 표면 온도가 가장 높은 색깔의 별은 무엇일까요?",
+                    type: "TEMP",
+                    options: ["청색 (파란색) 별", "노란색 별", "주황색 별", "적색 (붉은색) 별"],
+                    answer: "청색 (파란색) 별",
+                    exp: "별은 표면 온도가 높을수록 청색(파란색)을 띠며, 온도가 낮을수록 적색을 띱니다."
+                },
+                {
+                    q: "우리 태양과 비슷하게 노란색을 띠는 별의 표면 온도는 대략 얼마일까요?",
+                    type: "TEMP",
+                    options: ["약 6,000 K", "약 30,000 K", "약 3,000 K", "약 100,000 K"],
+                    answer: "약 6,000 K",
+                    exp: "노란색을 띠는 별의 표면 온도는 대략 6,000 K 근처입니다."
+                },
+                {
+                    q: "표면 온도가 약 3,000 K 이하로 가장 낮은 온도에 해당하는 별의 색깔은?",
+                    type: "TEMP",
+                    options: ["적색 (붉은색)", "청색 (파란색)", "흰색", "청백색"],
+                    answer: "적색 (붉은색)",
+                    exp: "표면 온도가 상대적으로 낮은 별은 적색을 띱니다."
+                }
+            ];
+            bank.push(...tempQuestions);
+
+            for (let i = 0; i < 9; i++) {
+                const typeObj = starTypesData[i % starTypesData.length];
+                bank.push({
+                    q: `발견된 '${typeObj.name}'의 색상 및 표면 온도 정보로 올바른 것은?`,
+                    type: "TEMP",
+                    starObj: typeObj,
+                    options: [
+                        `표면 온도 정보: ${typeObj.tempStr}`,
+                        "표면 온도가 100만도 이상이다",
+                        "별의 온도와 색깔은 아무 관련이 없다",
+                        "우주에 존재하는 모든 별의 온도는 동일하다"
+                    ],
+                    answer: `표면 온도 정보: ${typeObj.tempStr}`,
+                    exp: "별의 색깔을 통해 표면 온도를 직접 추정할 수 있습니다."
+                });
+            }
+
+            const distanceTemplates = [
+                { d: 10, shift: 0, desc: "10 pc에서는 겉보기 등급과 절대 등급이 같습니다 (m = M)." },
+                { d: 100, shift: -5, desc: "100 pc에서 10 pc로 가져오면 100배 밝아져 절대 등급이 5 작아집니다." },
+                { d: 1, shift: +5, desc: "1 pc에서 10 pc로 보내면 100배 어두워져 절대 등급이 5 커집니다." }
+            ];
+
+            for (let m=-2; m<=6; m++) {
+                distanceTemplates.forEach((t,idx)=>{
+                    const M=m+t.shift;
+                    const starName=starNames[(Math.abs(m)+idx+3)%starNames.length];
+                    const starObj=starTypesData[(Math.abs(m)+idx)%starTypesData.length];
+                    const fmt=n=>`${n>0?'+':''}${n}`;
+                    const calcOptions=[
+                        `절대 등급 M = ${fmt(M)} 등급`,
+                        `절대 등급 M = ${fmt(M+2)} 등급`,
+                        `절대 등급 M = ${fmt(M-2)} 등급`,
+                        `절대 등급 M = ${fmt(M+5)} 등급`
+                    ].sort(()=>Math.random()-.5);
+                    bank.push({
+                        q:`'${starName}'의 실제 거리 ${t.d} pc, 겉보기 등급 m = ${fmt(m)}일 때 절대 등급 M은?`,
+                        type:"MAGNITUDE", d:t.d, m:m, starObj:starObj,
+                        options:calcOptions, answer:`절대 등급 M = ${fmt(M)} 등급`, exp:t.desc
+                    });
+
+                    const m2=m+(idx===1?1:idx===2?-1:0);
+                    const M2=m2+t.shift;
+                    bank.push({
+                        q:`${t.d} pc에 있는 '${starName}'의 겉보기 등급이 m = ${fmt(m2)}이다. 이 별을 10 pc에 두었을 때 절대 등급 M은?`,
+                        type:"MAGNITUDE", d:t.d, m:m2, starObj:starObj,
+                        options:[
+                            `M = ${fmt(M2)} 등급`,`M = ${fmt(M2+1)} 등급`,`M = ${fmt(M2-5)} 등급`,`M = ${fmt(M2+5)} 등급`
+                        ].sort(()=>Math.random()-.5),
+                        answer:`M = ${fmt(M2)} 등급`, exp:t.desc
+                    });
+
+                    if(t.d===10){
+                        bank.push({
+                            q:`겉보기 등급 m = ${fmt(m)}, 절대 등급 M = ${fmt(M)}인 별의 거리는?`,
+                            type:"DISTANCE", d:t.d, m:m, starObj:starObj,
+                            options:["10 pc 위치에 있음","10 pc보다 멀리 있음","10 pc보다 가까이 있음","거리 판단이 불가능함"],
+                            answer:"10 pc 위치에 있음", exp:"m과 M이 같으므로 별은 10 pc에 있습니다."
+                        });
+                    }
+                });
+            }
+
+            return bank.sort(() => Math.random() - 0.5);
+        }
+
+
+        /* ===================================================================
+           4. GAME ENGINE
+           =================================================================== */
+        let questionBank = [];
+        let currentProblemIndex = 0;
+        let gameState = {
+            score: 0,
+            specialScore: 0,
+            lives: 3,
+            currentQuestion: null
+        };
+
+        function initGame() {
+            questionBank = createQuestionBank();
+            currentProblemIndex = 0;
+            gameState.score = 0;
+            gameState.specialScore = 0;
+            gameState.lives = 3;
+            alienMisses = 0;
+
+            updateShieldUI();
+            document.getElementById('scoreCount').innerText = '0';
+            document.getElementById('specialScore').innerText = '0';
+            document.getElementById('cockpitCracks').style.opacity = '0';
+            document.getElementById('damageRedOverlay').style.opacity = '0';
+            document.getElementById('gameOverModal').classList.add('hidden');
+            hideAlien();
+            if (environmentGroup) setPlanetEnvironment(0);
+
+            loadProblem(0);
+            updateAim(window.innerWidth/2, window.innerHeight*0.46);
+        }
+
+        function loadProblem(index) {
+            if (index >= questionBank.length) {
+                questionBank = createQuestionBank();
+                currentProblemIndex = 0;
+            }
+
+            const q = questionBank[index];
+            gameState.currentQuestion = q;
+
+            const starObj = q.starObj || starTypesData[Math.floor(Math.random() * starTypesData.length)];
+            buildCuteCreativeStar(starObj.key, starObj.hex);
+
+            document.getElementById('starName').innerText = starObj.name;
+            document.getElementById('starTypeBadge').innerText = `특성: ${starObj.key}`;
+            document.getElementById('problemProgress').innerText = `탐사 목표 #${index + 1}`;
+            document.getElementById('questionPrompt').innerText = q.q;
+            document.getElementById('feedbackText').innerText = '';
+            document.getElementById('questionOverlayCard').classList.add('hidden');
+            showScanPrompt();
+
+            const distVal = q.d ? `${q.d} pc` : '10 pc';
+            const appVal = q.m !== undefined ? `${q.m > 0 ? '+' : ''}${q.m} 등급` : '0 등급';
+            document.getElementById('centerDistanceText').innerText = distVal;
+            document.getElementById('centerApparentText').innerText = appVal;
+            document.getElementById('leftTempText').innerText = starObj.tempStr;
+
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = '';
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "bg-slate-900/90 hover:bg-amber-600/40 text-amber-200 border border-amber-500/50 hover:border-amber-400 py-3 px-3 rounded-2xl text-xs md:text-sm font-bold transition duration-200 shadow-md flex items-center justify-center text-center leading-snug";
+                btn.innerText = opt;
+                btn.onclick = () => { fireMachineGun(); checkAnswer(opt, btn); };
+                container.appendChild(btn);
+            });
+        }
+
+        function showScanPrompt(){
+            const overlay=document.getElementById('scanOverlay');
+            const btn=document.getElementById('scanButton');
+            const instruction=document.getElementById('scanInstruction');
+            const sub=document.getElementById('scanSubtext');
+            scanInProgress=false;
+            overlay.classList.remove('hidden','scanning');
+            instruction.innerText='별 탐지 완료';
+            sub.innerText='탐사 대상을 스캔하시오';
+            btn.disabled=false;
+            btn.innerHTML='<i class="fa-solid fa-satellite-dish mr-2"></i> 별 스캔 시작';
+        }
+
+        function startStarScan(){
+            if(scanInProgress) return;
+            scanInProgress=true;
+            audio.playClick();
+            triggerScreenEffect('scan');
+            
+            const overlay=document.getElementById('scanOverlay');
+            const btn=document.getElementById('scanButton');
+            const instruction=document.getElementById('scanInstruction');
+            const sub=document.getElementById('scanSubtext');
+            
+            overlay.classList.add('scanning');
+            btn.disabled=true;
+            btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 스캔 이미징 중...';
+            instruction.innerText='SCANNING...';
+            sub.innerText='분광 데이터 · 거리 데이터 · 밝기 데이터 수집 중';
+            document.getElementById('radarScanStatus').innerText='스캔 이미징 중...';
+            document.getElementById('radarScanStatus').className='text-cyan-300 font-bold animate-pulse';
+
+            setTimeout(()=>{
+                overlay.classList.add('hidden');
+                overlay.classList.remove('scanning');
+                document.getElementById('questionOverlayCard').classList.remove('hidden');
+                document.getElementById('radarScanStatus').innerText='조준 완료';
+                document.getElementById('radarScanStatus').className='text-emerald-400 font-bold';
+                scanInProgress=false;
+                
+                const guaranteed = alienMisses >= 2;
+                const shouldSpawn = guaranteed || Math.random() < 0.65;
+                if(shouldSpawn){
+                    alienMisses = 0;
+                    setTimeout(spawnAlien, 300);
+                } else {
+                    alienMisses++;
+                }
+            }, 1200);
+        }
+
+        function checkAnswer(selectedOpt, btnElement) {
+            const q = gameState.currentQuestion;
+            const isCorrect = (selectedOpt === q.answer);
+
+            const buttons = document.querySelectorAll('#optionsContainer button');
+            buttons.forEach(b => b.disabled = true);
+
+            if (isCorrect) {
+                audio.playSuccess();
+                triggerScreenEffect('success');
+                btnElement.className = "bg-emerald-600 text-white border border-emerald-300 py-3 px-3 rounded-2xl text-xs md:text-sm font-black shadow-lg";
+                document.getElementById('feedbackText').className = "text-center text-xs font-bold text-emerald-400";
+                document.getElementById('feedbackText').innerText = "정답입니다! 다음 항성계로 워프합니다.";
+
+                gameState.score++;
+                document.getElementById('scoreCount').innerText = gameState.score;
+                hideAlien();
+
+                setTimeout(() => {
+                    audio.playWarp();
+                    triggerScreenEffect('pan');
+                    document.getElementById('questionOverlayCard').classList.add('opacity-0', 'scale-90');
+                    document.getElementById('travelStreak').classList.add('active');
+
+                    setTimeout(() => {
+                        setPlanetEnvironment((planetIndex + 1) % planetThemes.length);
+                        currentProblemIndex++;
+                        loadProblem(currentProblemIndex);
+                        document.getElementById('questionOverlayCard').classList.remove('opacity-0', 'scale-90');
+                        document.getElementById('travelStreak').classList.remove('active');
+                    }, 850);
+                }, 750);
+
+            } else {
+                audio.playDamage();
+                btnElement.className = "bg-red-600 text-white border border-red-300 py-3 px-3 rounded-2xl text-xs md:text-sm font-black shadow-lg";
+                document.getElementById('feedbackText').className = "text-center text-xs font-bold text-red-400";
+                document.getElementById('feedbackText').innerText = `오답입니다! (${q.exp})`;
+
+                gameState.lives--;
+                updateShieldUI();
+                triggerCockpitDamage();
+
+                if (gameState.lives <= 0) {
+                    setTimeout(() => {
+                        document.getElementById('finalScore').innerText = `${gameState.score} 개`;
+                        document.getElementById('finalSpecialScore').innerText = `${gameState.specialScore} SP`;
+                        document.getElementById('gameOverModal').classList.remove('hidden');
+                    }, 1200);
+                } else {
+                    setTimeout(() => {
+                        buttons.forEach(b => b.disabled = false);
+                        btnElement.classList.add('opacity-30');
+                    }, 1400);
+                }
+            }
+        }
+
+        function updateShieldUI() {
+            const container = document.getElementById('shieldIcons');
+            container.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const icon = document.createElement('i');
+                if (i < gameState.lives) {
+                    icon.className = 'fa-solid fa-heart text-red-500 animate-pulse';
+                } else {
+                    icon.className = 'fa-solid fa-heart-crack text-slate-700';
+                }
+                container.appendChild(icon);
+            }
+        }
+
+        function triggerCockpitDamage() {
+            const root = document.getElementById('cockpitRoot');
+            root.classList.add('shake-impact', 'glitch-active');
+            
+            setTimeout(() => {
+                root.classList.remove('shake-impact', 'glitch-active');
+            }, 500);
+
+            const redOverlay = document.getElementById('damageRedOverlay');
+            redOverlay.style.opacity = '0.75';
+            setTimeout(() => redOverlay.style.opacity = '0', 400);
+
+            const cracks = document.getElementById('cockpitCracks');
+            const layer1 = document.getElementById('crackLayer1');
+            const layer2 = document.getElementById('crackLayer2');
+            const layer3 = document.getElementById('crackLayer3');
+            cracks.style.opacity = gameState.lives <= 0 ? '1' : '0.92';
+            if (layer1) layer1.style.opacity = '1';
+            if (layer2) layer2.style.opacity = gameState.lives <= 1 ? '1' : '0';
+            if (layer3) layer3.style.opacity = gameState.lives <= 0 ? '1' : '0';
+
+            const smoke = document.getElementById('smokeDamage');
+            smoke.classList.remove('active');
+            void smoke.offsetWidth;
+            smoke.classList.add('active');
+
+            document.querySelectorAll('footer .bg-slate-900\\/95, footer .bg-black').forEach(panel => {
+                panel.classList.add('panel-damaged');
+                setTimeout(()=>panel.classList.remove('panel-damaged'),1200);
+            });
+        }
+
+
+        /* 머신건 조준 및 발사 */
+        function updateAim(x,y){
+            aimX=Math.max(25,Math.min(window.innerWidth-25,x));
+            aimY=Math.max(25,Math.min(window.innerHeight-25,y));
+            const ret=document.getElementById('aimReticle');
+            ret.style.left=aimX+'px'; ret.style.top=aimY+'px';
+
+            const rig=document.getElementById('machineGunRig');
+            const dx=(aimX-window.innerWidth/2);
+            rig.style.transform=`translateX(${Math.max(-115,Math.min(115,dx*.22))}px) rotate(${Math.max(-10,Math.min(10,dx*.025))}deg)`;
+        }
+
+        function fireMachineGun(){
+            audio.playClick();
+            triggerScreenEffect('pulse');
+            const rig=document.getElementById('machineGunRig');
+            const muzzle=rig.querySelector('.machinegun-barrel');
+            const r=muzzle.getBoundingClientRect();
+            const sx=r.right, sy=r.top+r.height/2;
+            const dx=aimX-sx, dy=aimY-sy;
+            const len=Math.hypot(dx,dy);
+            const beam=document.getElementById('laserBeam');
+            beam.style.left=sx+'px'; beam.style.top=sy+'px';
+            beam.style.width=len+'px';
+            beam.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+            beam.classList.remove('fire'); void beam.offsetWidth; beam.classList.add('fire');
+            rig.animate([{transform:rig.style.transform+' scale(.97)'},{transform:rig.style.transform+' scale(1)'}],{duration:120});
+            
+            tryHitAlien();
+        }
+
+        /* ---------- 표적(십자선) 전용 조작: 터치/마우스/펜 공통 ----------
+           - 십자선을 직접 눌러 끌 때만 이동
+           - 십자선을 끌지 않고 탭할 때만 '표적 위치'를 클릭 (발사 + 표적 아래 버튼 작동)
+           - 화면의 다른 곳을 누르는 클릭/터치는 전부 무시 (버튼 포함)             */
+        const AIM_GRAB_RADIUS = 52;
+        const AIM_DRAG_THRESHOLD = 6;
+        let aimDrag = null;
+        let allowClick = false;
+
+        function isOnReticle(x, y){
+            return Math.hypot(x - aimX, y - aimY) <= AIM_GRAB_RADIUS;
+        }
+
+        // 표적이 가리키는 지점을 클릭
+        function activateAtReticle(){
+            const el = document.elementFromPoint(aimX, aimY);
+            const target = el && el.closest ? el.closest('button, a, input, [onclick]') : null;
+            if(target && !target.disabled){
+                allowClick = true;
+                try { target.click(); } finally { allowClick = false; }
+            } else {
+                fireMachineGun();
+            }
+        }
+
+        // 표적이 아닌 곳에서 발생한 모든 클릭을 차단
+        document.addEventListener('click', e=>{
+            if(!allowClick){ e.stopImmediatePropagation(); e.preventDefault(); }
+        }, true);
+        document.addEventListener('dblclick', e=>{ e.stopImmediatePropagation(); e.preventDefault(); }, true);
+        document.addEventListener('contextmenu', e=>{ e.preventDefault(); }, true);
+
+        document.addEventListener('pointerdown', e=>{
+            if(aimDrag) return;
+            if(e.pointerType === 'mouse' && e.button !== 0) return;
+            if(!isOnReticle(e.clientX, e.clientY)) return;
+            aimDrag = { id:e.pointerId, sx:e.clientX, sy:e.clientY, ox:aimX, oy:aimY, moved:false };
+        }, true);
+
+        document.addEventListener('pointermove', e=>{
+            if(!aimDrag || e.pointerId !== aimDrag.id) return;
+            const dx = e.clientX - aimDrag.sx, dy = e.clientY - aimDrag.sy;
+            if(!aimDrag.moved && Math.hypot(dx,dy) < AIM_DRAG_THRESHOLD) return;
+            aimDrag.moved = true;
+            updateAim(aimDrag.ox + dx, aimDrag.oy + dy);
+        });
+
+        function endAimDrag(e){
+            if(!aimDrag || e.pointerId !== aimDrag.id) return;
+            const d = aimDrag;
+            aimDrag = null;
+            if(!d.moved && e.type === 'pointerup') activateAtReticle();
+        }
+        document.addEventListener('pointerup', endAimDrag);
+        document.addEventListener('pointercancel', endAimDrag);
+
+        // 표적을 잡은 동안 화면 스크롤/확대를 막음
+        document.addEventListener('touchstart', e=>{
+            if(aimDrag) e.preventDefault();
+        }, {passive:false});
+        document.addEventListener('touchmove', e=>{
+            if(aimDrag) e.preventDefault();
+        }, {passive:false});
+        document.addEventListener('keydown', e=>{
+            if(e.code==='Space'){ e.preventDefault(); fireMachineGun(); }
+        });
+
+        function pullLever() {
+            audio.playClick();
+            const lever = document.getElementById('shipLever');
+            lever.style.transform = 'translateY(6px)';
+            setTimeout(() => lever.style.transform = 'translateY(0px)', 300);
+        }
+
+        function triggerScreenEffect(type){
+            const fx=document.getElementById('screenFx');
+            if(!fx) return;
+
+            const valid=['power','scan','thrust','lock','success','pulse','pan'];
+            const cls=valid.includes(type)?type:'pulse';
+
+            fx.classList.remove('active','power','scan','thrust','lock','success','pulse','pan');
+            void fx.offsetWidth;
+            fx.classList.add('active',cls);
+
+            const canvas=document.getElementById('canvasContainer');
+            if(canvas && (cls==='thrust' || cls==='pan')){
+                const canvasCls=cls==='thrust'?'screen-thrust':'screen-pan';
+                canvas.classList.remove(canvasCls);
+                void canvas.offsetWidth;
+                canvas.classList.add(canvasCls);
+                setTimeout(()=>canvas.classList.remove(canvasCls),900);
+            }
+
+            setTimeout(()=>{
+                fx.classList.remove('active',cls);
+            },950);
+        }
+
+        function pullExternalLever() {
+            audio.playClick();
+            triggerScreenEffect('thrust');
+            const lever=document.getElementById('externalLever');
+            lever.style.transform='translateY(7px) rotate(4deg)';
+            setTimeout(()=>lever.style.transform='',250);
+            document.getElementById('radarScanStatus').innerText='추진 출력 조정';
+            setTimeout(()=>document.getElementById('radarScanStatus').innerText='조준 완료',500);
+        }
+
+        function pressDeckButton(key) {
+            audio.playClick();
+            const scanText=document.getElementById('radarScanStatus');
+            const buttonEffect=(type)=>{
+                triggerScreenEffect(type);
+                const activeClass={
+                    power:'button-power-active',
+                    scan:'button-scan-active',
+                    pulse:'button-pulse-active',
+                    lock:'button-lock-active',
+                    thrust:'button-thrust-active',
+                    success:'button-pulse-active',
+                    pan:'button-thrust-active'
+                }[type];
+                if(activeClass){
+                    document.querySelectorAll(`[onclick="pressDeckButton('${key}')"]`).forEach(el=>{
+                        el.classList.remove(activeClass);
+                        void el.offsetWidth;
+                        el.classList.add(activeClass);
+                        setTimeout(()=>el.classList.remove(activeClass),750);
+                    });
+                }
+            };
+            const actions={
+                A:()=>{ buttonEffect('power'); scanText.innerText='동력 계통 재기동'; },
+                B:()=>{ buttonEffect('scan'); scanText.innerText='장거리 센서 스캔'; },
+                S1:()=>{ buttonEffect('scan'); scanText.innerText='센서 재스캔'; },
+                S2:()=>{ buttonEffect('pulse'); scanText.innerText='조종석 조명 조정'; },
+                EXT1:()=>{ buttonEffect('power'); scanText.innerText='보조 전원 분배'; },
+                EXT2:()=>{ buttonEffect('scan'); scanText.innerText='외부 센서 핑'; },
+                EXT3:()=>{ buttonEffect('pulse'); scanText.innerText='항법 데이터 수신'; },
+                EXT4:()=>{ buttonEffect('success'); scanText.innerText='생명 신호 확인'; },
+                EXT5:()=>{ buttonEffect('lock'); scanText.innerText='조준 잠금'; }
+            };
+            (actions[key]||actions.S1)();
+            scanText.className='text-cyan-300 font-bold animate-pulse';
+            setTimeout(()=>{ scanText.innerText='조준 완료'; scanText.className='text-emerald-400 font-bold'; },700);
+        }
+
+
+        /* CALCULATOR & MODALS */
+        let calcVal = "0";
+
+        function calcInput(char) {
+            audio.playClick();
+            triggerScreenEffect(char === '=' ? 'success' : 'pulse');
+            const disp = document.getElementById('calcDisplay');
+            if (char === 'C') calcVal = "0";
+            else {
+                if (calcVal === "0" && !isNaN(char)) calcVal = char;
+                else calcVal += char;
+            }
+            disp.value = calcVal;
+        }
+
+        function calcEval() {
+            audio.playClick();
+            triggerScreenEffect('success');
+            const disp = document.getElementById('calcDisplay');
+            try {
+                const res = eval(calcVal.replace(/×/g, '*').replace(/÷/g, '/'));
+                calcVal = String(Number(res.toFixed(2)));
+                disp.value = calcVal;
+            } catch (e) {
+                disp.value = "오류";
+                calcVal = "0";
+            }
+        }
+
+        document.getElementById('btnToggleCalc').onclick = () => {
+            audio.playClick();
+            triggerScreenEffect('pulse');
+            document.getElementById('calcWidget').classList.toggle('hidden');
+        };
+        document.getElementById('btnCloseCalc').onclick = () => {
+            audio.playClick();
+            triggerScreenEffect('lock');
+            document.getElementById('calcWidget').classList.add('hidden');
+        };
+
+        document.getElementById('btnGuide').onclick = () => {
+            audio.playClick();
+            triggerScreenEffect('scan');
+            document.getElementById('guideModal').classList.remove('hidden');
+        };
+        document.getElementById('btnCloseGuide').onclick = 
+        document.getElementById('btnConfirmGuide').onclick = () => {
+            audio.playClick();
+            triggerScreenEffect('lock');
+            document.getElementById('guideModal').classList.add('hidden');
+        };
+
+        document.getElementById('btnRestart').onclick = () => {
+            audio.playClick();
+            triggerScreenEffect('thrust');
+            initGame();
+        };
+
+        window.onload = () => {
+            initThreeJS();
+            initGame();
+        };
+
+    </script>
+</body>
+</html>
